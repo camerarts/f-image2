@@ -12,6 +12,7 @@ export default function App() {
   const [lastImageData, setLastImageData] = useState<{ blob: Blob, filename: string } | null>(null);
   const [workerConfigured, setWorkerConfigured] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
+  const [isTestingHealth, setIsTestingHealth] = useState(false);
 
   // Helper to add logs with timestamp
   const addLog = useCallback((msg: string) => {
@@ -29,11 +30,28 @@ export default function App() {
 
   // Check if user has configured the worker URL
   useEffect(() => {
-    addLog(`应用启动. 目标 API: ${WORKER_API_URL}`);
+    addLog(`应用启动. 目标 Worker API: ${WORKER_API_URL}`);
     if (WORKER_API_URL.includes('replace-me')) {
       setWorkerConfigured(false);
       setStatusMessage('配置错误：未设置 WORKER_API_URL');
       addLog('错误: 检测到默认 URL，请修改 constants.ts');
+    }
+  }, [addLog]);
+
+  const handleCheckHealth = useCallback(async () => {
+    setIsTestingHealth(true);
+    addLog('=== 开始 API 连通性测试 ===');
+    try {
+      const ok = await ComfyService.checkHealth(addLog);
+      if (ok) {
+        addLog('✅ 连通性测试通过！Worker 正常响应。');
+      } else {
+        addLog('❌ 连通性测试失败，请检查 Worker 地址或部署状态。');
+      }
+    } catch (e: any) {
+      addLog(`❌ 测试异常: ${e.message}`);
+    } finally {
+      setIsTestingHealth(false);
     }
   }, [addLog]);
 
@@ -145,6 +163,16 @@ export default function App() {
                 className="w-full"
               >
                 {status === AppStatus.GENERATING ? '生成中...' : '生成图片'}
+              </Button>
+
+              <Button
+                variant="secondary"
+                onClick={handleCheckHealth}
+                isLoading={isTestingHealth}
+                disabled={!workerConfigured}
+                className="w-full !py-2 !text-sm !bg-gray-800/50"
+              >
+                🛠️ 连通性测试 (Test API)
               </Button>
 
               <div className={`text-center text-sm font-medium transition-colors duration-300 ${
