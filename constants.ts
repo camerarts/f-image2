@@ -1,10 +1,10 @@
 import { ComfyWorkflow } from './types';
 
 // =========================================================================
-// 【重要】请将下方地址替换为您部署好的 Cloudflare Worker 地址
-// 格式如: https://z-image-api.您的名字.workers.dev
+// 【重要】已配置为您的 Cloudflare Worker 绝对路径
+// 必须以 https:// 开头，末尾不要带斜杠
 // =========================================================================
-export const WORKER_API_URL = 'https://5f949cbb5c64432085a14d7f3828f357--8188.ap-shanghai2.cloudstudio.club';
+export const WORKER_API_URL = 'https://zimage.sqqdeidt.workers.dev';
 
 // 标准 16:9 SDXL Turbo 工作流模板
 // 注意：代码 App.tsx 会自动寻找节点 ID "34" 进行修改，如果找不到则尝试修改 "6" 和 "3"
