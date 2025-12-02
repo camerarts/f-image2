@@ -4,7 +4,7 @@ import { ComfyWorkflow } from './types';
 // IMPORTANT: REPLACE THIS WITH YOUR DEPLOYED CLOUDFLARE WORKER URL
 // Example: https://z-image-api.your-name.workers.dev
 // =========================================================================
-export const WORKER_API_URL = 'https://z-image-api.replace-me.workers.dev';
+export const WORKER_API_URL = 'https://zimage.sqqdeidt.workers.dev';
 
 // Standard 16:9 SDXL Turbo Workflow Template
 // Based on the requirement to modify Node 34 for prompt and seed
