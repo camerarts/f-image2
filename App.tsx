@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ComfyService } from './services/comfyService';
 import { WORKFLOW_TEMPLATE, WORKER_API_URL } from './constants';
 import { AppStatus } from './types';
@@ -11,14 +11,31 @@ export default function App() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [lastImageData, setLastImageData] = useState<{ blob: Blob, filename: string } | null>(null);
   const [workerConfigured, setWorkerConfigured] = useState(true);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Helper to add logs with timestamp
+  const addLog = useCallback((msg: string) => {
+    const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    setLogs(prev => [...prev, `[${time}] ${msg}`]);
+  }, []);
+
+  // Auto-scroll logs
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
 
   // Check if user has configured the worker URL
   useEffect(() => {
+    addLog(`应用启动. 目标 API: ${WORKER_API_URL}`);
     if (WORKER_API_URL.includes('replace-me')) {
       setWorkerConfigured(false);
       setStatusMessage('配置错误：未设置 WORKER_API_URL');
+      addLog('错误: 检测到默认 URL，请修改 constants.ts');
     }
-  }, []);
+  }, [addLog]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() || status === AppStatus.GENERATING) return;
@@ -27,39 +44,37 @@ export default function App() {
     setStatusMessage('初始化中...');
     setImageUrl(null);
     setLastImageData(null);
+    setLogs([]); // Clear logs on new run
+    addLog('=== 开始新任务 ===');
 
     const startTime = Date.now();
 
     try {
       // 1. Prepare Workflow
+      addLog('正在组装工作流 JSON...');
       const workflow = JSON.parse(JSON.stringify(WORKFLOW_TEMPLATE));
       
-      // Inject logic as requested: Node 34 input text and seed
       const randomSeed = Math.floor(Math.random() * 1000000000);
+      addLog(`生成随机种子: ${randomSeed}`);
       
-      // Logic Router: If node 34 exists in template, use it. 
-      // Otherwise fallback to standard SDXL nodes (6 for text, 3 for seed) 
-      // to ensure the app works out of the box with the provided template.
       if (workflow["34"]) {
         workflow["34"].inputs.text = prompt;
         workflow["34"].inputs.seed = randomSeed;
       }
-      
-      // Also update actual functional nodes for robustness
       if (workflow["6"]) workflow["6"].inputs.text = prompt;
       if (workflow["3"]) workflow["3"].inputs.seed = randomSeed;
 
       // 2. Queue Prompt
       setStatusMessage('正在提交任务...');
-      const promptId = await ComfyService.queuePrompt(workflow);
+      const promptId = await ComfyService.queuePrompt(workflow, addLog);
 
       // 3. Poll for History
       setStatusMessage('正在生成 (约 5-10 秒)...');
-      const imageMeta = await ComfyService.pollHistory(promptId);
+      const imageMeta = await ComfyService.pollHistory(promptId, addLog);
 
       // 4. Download Image
       setStatusMessage('正在下载结果...');
-      const blob = await ComfyService.downloadImage(imageMeta.filename, imageMeta.subfolder, imageMeta.type);
+      const blob = await ComfyService.downloadImage(imageMeta.filename, imageMeta.subfolder, imageMeta.type, addLog);
       
       // 5. Display
       const url = URL.createObjectURL(blob);
@@ -68,13 +83,15 @@ export default function App() {
       setStatus(AppStatus.SUCCESS);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       setStatusMessage(`完成 (耗时 ${duration} 秒)`);
+      addLog(`=== 任务完成，总耗时 ${duration}s ===`);
 
     } catch (error: any) {
       console.error(error);
       setStatus(AppStatus.ERROR);
       setStatusMessage(error.message || '生成失败');
+      addLog(`!!! 发生错误: ${error.message} !!!`);
     }
-  }, [prompt, status]);
+  }, [prompt, status, addLog]);
 
   const handleDownload = useCallback(() => {
     if (!lastImageData) return;
@@ -194,6 +211,28 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Debug Log Section */}
+      <details className="w-full max-w-4xl mt-8 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <summary className="px-6 py-4 cursor-pointer text-gray-400 font-mono text-sm hover:bg-gray-800 transition-colors flex items-center select-none">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          调试日志 (Debug Log)
+        </summary>
+        <div className="px-6 pb-6 pt-2 border-t border-gray-800">
+           <div 
+             ref={logContainerRef}
+             className="bg-black/50 p-4 rounded-lg font-mono text-xs text-green-400/90 whitespace-pre-wrap overflow-x-auto h-64 overflow-y-auto border border-gray-800/50 shadow-inner"
+           >
+             {logs.length === 0 ? (
+               <span className="text-gray-600 opacity-50">等待操作...</span>
+             ) : (
+               logs.map((log, i) => (
+                 <div key={i} className="mb-1 border-b border-gray-800/30 pb-0.5">{log}</div>
+               ))
+             )}
+           </div>
+        </div>
+      </details>
 
       <style>{`
         @keyframes progress {
