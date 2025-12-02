@@ -11,20 +11,29 @@ export class ComfyService {
    * Checks if the backend is reachable
    */
   static async checkHealth(log?: LogFunction): Promise<boolean> {
+    const targetUrl = `${WORKER_API_URL}/api/health`;
+    
+    if (log) {
+      log(`[Health] 配置 Base URL: ${WORKER_API_URL}`);
+      log(`[Health] 完整请求地址: ${targetUrl}`);
+    }
+
     try {
-      if (log) log(`正在检查健康状态: ${WORKER_API_URL}/api/health`);
-      const res = await fetch(`${WORKER_API_URL}/api/health`);
-      if (log) log(`Health 状态码: ${res.status}`);
+      const res = await fetch(targetUrl);
+      if (log) log(`[Health] HTTP 状态码: ${res.status}`);
+      
       if (!res.ok) {
         const text = await res.text();
-        if (log) log(`Health 错误内容: ${text}`);
+        if (log) log(`[Health] 错误响应体: ${text}`);
         return false;
       }
+      
       const data = await res.json();
+      if (log) log(`[Health] 响应 JSON: ${JSON.stringify(data)}`);
       return data.ok;
     } catch (e: any) {
       console.error("Health check failed:", e);
-      if (log) log(`Health 检查异常: ${e.message}`);
+      if (log) log(`[Health] 请求抛出异常 (Fetch Error): ${e.message}`);
       return false;
     }
   }
@@ -34,29 +43,32 @@ export class ComfyService {
    */
   static async queuePrompt(workflow: ComfyWorkflow, log: LogFunction): Promise<string> {
     const clientId = Math.random().toString(36).substring(7);
+    const targetUrl = `${WORKER_API_URL}/api/prompt`;
     
     const payload = {
       prompt: workflow,
       client_id: clientId,
     };
 
-    log(`[Prompt] 正在提交任务 (Client ID: ${clientId})...`);
+    log(`[Prompt] 准备提交。配置 Base URL: ${WORKER_API_URL}`);
+    log(`[Prompt] 完整请求地址: ${targetUrl}`);
+    log(`[Prompt] Client ID: ${clientId}`);
     
     let res: Response;
     try {
-      res = await fetch(`${WORKER_API_URL}/api/prompt`, {
+      res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
     } catch (e: any) {
-      log(`[Prompt] 网络请求异常: ${e.message}`);
+      log(`[Prompt] 网络请求异常 (Fetch Failed): ${e.message}`);
       throw e;
     }
 
     if (!res.ok) {
       const text = await res.text();
-      log(`[Prompt] 请求失败: Status ${res.status}, Body: ${text}`);
+      log(`[Prompt] API 返回错误: Status ${res.status}, Body: ${text}`);
       throw new Error(`提交任务失败: ${res.statusText}`);
     }
 
@@ -76,8 +88,10 @@ export class ComfyService {
    */
   static async pollHistory(promptId: string, log: LogFunction): Promise<{ filename: string; subfolder: string; type: string }> {
     let attempts = 0;
+    const targetUrl = `${WORKER_API_URL}/api/history/${promptId}`;
     
-    log(`[Polling] 开始轮询结果，Prompt ID: ${promptId}`);
+    log(`[Polling] 开始轮询。Base URL: ${WORKER_API_URL}`);
+    log(`[Polling] 完整请求地址: ${targetUrl}`);
 
     while (attempts < MAX_RETRIES) {
       attempts++;
@@ -87,7 +101,7 @@ export class ComfyService {
       }
 
       try {
-        const res = await fetch(`${WORKER_API_URL}/api/history/${promptId}`);
+        const res = await fetch(targetUrl);
         if (!res.ok) {
            const text = await res.text();
            log(`[Polling #${attempts}] 失败: Status ${res.status}, Body: ${text}`);
@@ -98,21 +112,20 @@ export class ComfyService {
         const historyItem = data[promptId];
 
         if (!historyItem) {
-           log(`[Polling #${attempts}] HistoryItem 未找到 (可能还在排队/计算中)`);
+           log(`[Polling #${attempts}] HistoryItem 未找到 (任务可能还在排队)`);
            continue;
         }
 
         // Check outputs
         const hasOutputs = !!historyItem.outputs;
         const outputKeys = hasOutputs ? Object.keys(historyItem.outputs) : [];
-        let hasImages = false;
         
         // Check for error in status
         if (historyItem.status && (historyItem.status as any).error) {
             log(`[Polling #${attempts}] 检测到错误: ${JSON.stringify((historyItem.status as any).error)}`);
         }
 
-        log(`[Polling #${attempts}] History 获取成功. Outputs: ${hasOutputs ? '有' : '无'}, Keys: [${outputKeys.join(', ')}]`);
+        log(`[Polling #${attempts}] 获取成功. Outputs: ${hasOutputs ? '有' : '无'}, Keys: [${outputKeys.join(', ')}]`);
 
         if (hasOutputs) {
           // Find the first output with images
@@ -150,11 +163,12 @@ export class ComfyService {
    */
   static async downloadImage(filename: string, subfolder: string, type: string, log: LogFunction): Promise<Blob> {
     const query = new URLSearchParams({ filename, subfolder, type });
-    const url = `${WORKER_API_URL}/api/view?${query.toString()}`;
+    const targetUrl = `${WORKER_API_URL}/api/view?${query.toString()}`;
     
-    log(`[View] 准备下载图片: ${url}`);
+    log(`[View] 准备下载。Base URL: ${WORKER_API_URL}`);
+    log(`[View] 完整请求地址: ${targetUrl}`);
     
-    const res = await fetch(url);
+    const res = await fetch(targetUrl);
     
     if (!res.ok) {
       const text = await res.text();
