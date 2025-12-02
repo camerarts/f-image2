@@ -75,12 +75,59 @@ export default function App() {
       const randomSeed = Math.floor(Math.random() * 1000000000);
       addLog(`生成随机种子: ${randomSeed}`);
       
+      // 修改参数 (保留原有逻辑，确保核心节点 6 和 3 被赋值)
+      // 注意：即使后续 Node 34 被删除，这里先赋值也没关系
       if (workflow["34"]) {
         workflow["34"].inputs.text = prompt;
         workflow["34"].inputs.seed = randomSeed;
       }
       if (workflow["6"]) workflow["6"].inputs.text = prompt;
       if (workflow["3"]) workflow["3"].inputs.seed = randomSeed;
+
+      // --- 兼容性清理 (Fix for 'Node Note does not exist') ---
+      addLog('正在执行兼容性清理...');
+      const preCount = Object.keys(workflow).length;
+      const nodesToDelete: string[] = [];
+      
+      // 查找需要删除的节点
+      for (const [id, node] of Object.entries(workflow)) {
+        // 删除 Note 节点以及可能存在的其他纯 UI 节点
+        if ((node as any).class_type === 'Note') {
+          nodesToDelete.push(id);
+        }
+      }
+
+      // 执行删除
+      nodesToDelete.forEach(id => {
+        delete workflow[id];
+      });
+
+      // 检查引用完整性 (简单扫描)
+      // 防止已删除的节点仍被其他节点作为输入引用，导致 Server 崩溃
+      for (const [id, node] of Object.entries(workflow)) {
+        const inputs = (node as any).inputs;
+        if (!inputs) continue;
+        for (const [key, val] of Object.entries(inputs)) {
+          // ComfyUI 连接格式通常是 [node_id, slot_index]
+          if (Array.isArray(val) && val.length === 2) {
+             const targetNodeId = String(val[0]);
+             if (nodesToDelete.includes(targetNodeId)) {
+               addLog(`[警告] 节点 ${id} 的输入 '${key}' 引用了已删除的节点 ${targetNodeId}。`);
+               // 这里不做强制处理，通常 Note 节点不会作为核心逻辑的输入。
+               // 如果真的发生了，说明模板结构有问题。
+             }
+          }
+        }
+      }
+
+      const postCount = Object.keys(workflow).length;
+      addLog(`兼容性清理完成: 节点数 ${preCount} -> ${postCount}`);
+      if (nodesToDelete.length > 0) {
+        addLog(`已移除不支持的节点 ID: [${nodesToDelete.join(', ')}]`);
+      } else {
+        addLog(`未发现不兼容节点。`);
+      }
+      // ----------------------------------------------------
 
       // 2. Queue Prompt
       setStatusMessage('正在提交任务...');
