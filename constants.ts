@@ -1,13 +1,13 @@
 import { ComfyWorkflow } from './types';
 
 // =========================================================================
-// IMPORTANT: REPLACE THIS WITH YOUR DEPLOYED CLOUDFLARE WORKER URL
-// Example: https://z-image-api.your-name.workers.dev
+// 【重要】请将下方地址替换为您部署好的 Cloudflare Worker 地址
+// 格式如: https://z-image-api.您的名字.workers.dev
 // =========================================================================
-export const WORKER_API_URL = 'https://zimage.sqqdeidt.workers.dev';
+export const WORKER_API_URL = 'https://5f949cbb5c64432085a14d7f3828f357--8188.ap-shanghai2.cloudstudio.club';
 
-// Standard 16:9 SDXL Turbo Workflow Template
-// Based on the requirement to modify Node 34 for prompt and seed
+// 标准 16:9 SDXL Turbo 工作流模板
+// 注意：代码 App.tsx 会自动寻找节点 ID "34" 进行修改，如果找不到则尝试修改 "6" 和 "3"
 export const WORKFLOW_TEMPLATE: ComfyWorkflow = {
   "3": {
     "inputs": {
@@ -114,16 +114,15 @@ export const WORKFLOW_TEMPLATE: ComfyWorkflow = {
       "title": "Save Image"
     }
   },
-  // Mapping Node 34 logic to the actual functional nodes for robustness
-  // If your specific JSON has a node "34" that controls everything, we can use that.
-  // Below is a "Logic Router" that effectively allows us to target "34" in code
-  // even if the underlying workflow uses standard nodes 3/6.
+  // 占位符节点：用于兼容 "Node 34" 的修改逻辑
+  // App.tsx 逻辑：如果存在 ID 为 "34" 的节点，优先修改它的 inputs.text 和 inputs.seed
+  // 这样即便底层工作流节点 ID 变动，只要保留这个壳，代码就能跑通
   "34": {
      "inputs": {
-        "text": "", // Will be injected into Node 6
-        "seed": 0   // Will be injected into Node 3
+        "text": "", 
+        "seed": 0
      },
-     "class_type": "Note", // Dummy node just to hold the config if needed, or we modify directly
+     "class_type": "Note", 
      "_meta": {
        "title": "Input Controller"
      }
