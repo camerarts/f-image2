@@ -41,7 +41,7 @@ export const WORKFLOW_TEMPLATE: ComfyWorkflow = {
   },
   "4": {
     "inputs": {
-      "ckpt_name": "sd_xl_turbo_1.0_fp16.safetensors"
+      "ckpt_name": "Z-Image Turbo fyt"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
