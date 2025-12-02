@@ -1,0 +1,5 @@
+{
+  "name": "Z-Image Turbo",
+  "description": "A minimalist, high-performance text-to-image generator using ComfyUI and Cloudflare Workers.",
+  "requestFramePermissions": []
+}
